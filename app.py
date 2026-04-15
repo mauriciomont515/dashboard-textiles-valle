@@ -5,6 +5,11 @@ import gspread
 from google.oauth2.service_account import Credentials
 import os
 
+# --- CARGA INTELIGENTE DE SECRETOS ---
+# Intentamos leer de st.secrets (Nube), si falla, usamos os.getenv (Local)
+ACCESS_TOKEN = st.secrets.get("META_ACCESS_TOKEN", os.getenv("META_ACCESS_TOKEN"))
+IG_USER_ID = st.secrets.get("IG_USER_ID", os.getenv("IG_USER_ID"))
+
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="BI Textil - Auditoría Creativa", page_icon="🧵", layout="wide")
 
@@ -12,12 +17,25 @@ st.title("🧵 Laboratorio Creativo: Textiles del Valle")
 st.markdown("Plataforma de Business Intelligence para auditar el rendimiento y planificar el contenido.")
 
 # --- CONEXIÓN A GOOGLE SHEETS ---
+# --- CARGA INTELIGENTE DE SECRETOS ---
+# Intentamos leer de st.secrets (Nube), si falla, usamos os.getenv (Local)
+ACCESS_TOKEN = st.secrets.get("META_ACCESS_TOKEN", os.getenv("META_ACCESS_TOKEN"))
+IG_USER_ID = st.secrets.get("IG_USER_ID", os.getenv("IG_USER_ID"))
+
 @st.cache_data(ttl=600)
 def cargar_datos():
     scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    ruta_actual = os.path.dirname(os.path.abspath(__file__))
-    ruta_json = os.path.join(ruta_actual, 'credenciales_google.json')
-    credenciales = Credentials.from_service_account_file(ruta_json, scopes=scopes)
+    
+    # Verificamos si estamos en la nube o en local para Google
+    if "gcp_service_account" in st.secrets:
+        # Modo Nube: Usamos el diccionario directo de st.secrets
+        credenciales_dict = st.secrets["gcp_service_account"]
+        credenciales = Credentials.from_service_account_info(credenciales_dict, scopes=scopes)
+    else:
+        # Modo Local: Usamos tu archivo JSON físico
+        ruta_json = os.path.join(os.path.dirname(__file__), 'credenciales_google.json')
+        credenciales = Credentials.from_service_account_file(ruta_json, scopes=scopes)
+    
     cliente = gspread.authorize(credenciales)
     
     # ⚠️ REEMPLAZA ESTA URL CON LA DEL EXCEL DE LA FÁBRICA
